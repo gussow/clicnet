@@ -2,8 +2,11 @@
 Model classes and functions for CLICnet.
 """
 # Imports --------------------------------------------------------------------------------------------------------------
-from rbm import RBM
-from cancer_data import MSK, MSKTMB, TCGA, LIU, RIAZ, load_presets
+import sys
+from .rbm import RBM
+from . import cancer_data
+sys.modules["cancer_data"] = cancer_data  # required to overcome pickling namespace issues
+from .cancer_data import TCGA, MSK, MSKTMB, LIU, RIAZ, load_presets
 import numpy as np
 import pandas as pd
 from lifelines import CoxPHFitter
@@ -25,6 +28,7 @@ LIU_DATA = LIU(resource_filename(__name__, "cdata/liu.pickle"))
 RIAZ_DATA = RIAZ(resource_filename(__name__, "cdata/riaz.pickle"))
 
 PRESETS = load_presets(resource_filename(__name__, "cdata/mut_profiles.pickle"))
+
 CANCER_TYPES = {
     'Head&neck':'HNSC',
     'Colorectal':'COAD',
@@ -46,7 +50,7 @@ ANTI_PD1_CANCERS = ['Colorectal','Esophagus','Kidney','Melanoma','Glioma','Lung'
 plt.rcParams['figure.figsize'] = 12, 8
 
 # Functions ------------------------------------------------------------------------------------------------------------
-def log_rank_rbm(cancer_type, genes, cancer_data, max_epochs=MAX_EPOCHS, trained_rbm=None):
+def log_rank_rbm(cancer_type, genes, cancer_dataset, max_epochs=MAX_EPOCHS, trained_rbm=None):
     """
     Get log-rank of survival. An RBM is trained based on the data, unless the trained_rbm parameter is provided,
     in which case the pre-trained RBM provided is used.
@@ -56,12 +60,12 @@ def log_rank_rbm(cancer_type, genes, cancer_data, max_epochs=MAX_EPOCHS, trained
         "Cancer type must be one of: {}".format(", ".join(CANCER_TYPES.keys()))
     cancer_type = CANCER_TYPES[cancer_type]
 
-    assert cancer_data.assert_cancer_in_data(cancer_type), "Cancer type {} not in data".format(cancer_name)
-    assert cancer_data.assert_genes_in_data(genes), "All genes [ {} ] not present in data".format(
+    assert cancer_dataset.assert_cancer_in_data(cancer_type), "Cancer type {} not in data".format(cancer_name)
+    assert cancer_dataset.assert_genes_in_data(genes), "All genes [ {} ] not present in data".format(
         ", ".join(genes)
     )
 
-    cancer_mutations_table, cancer_clinical_table = cancer_data.extract_cancer(cancer_type, genes)
+    cancer_mutations_table, cancer_clinical_table = cancer_dataset.extract_cancer(cancer_type, genes)
     assert not cancer_mutations_table.empty, "No mutations selected, perhaps try different genes?"
     final_gene_set = set(cancer_mutations_table.keys())
 
@@ -90,9 +94,9 @@ def log_rank_rbm(cancer_type, genes, cancer_data, max_epochs=MAX_EPOCHS, trained
                           columns=['survival', 'death', 'clusters'])
     if cancer_type == "PANCANC":
         # Pan cancer analysis, adding the type as a covariate
-        strata_idxs = sorted(cancer_data.clinical_table.loc[:, "type"].tolist())
+        strata_idxs = sorted(cancer_dataset.clinical_table.loc[:, "type"].tolist())
         cox_df.loc[:, "cancer_type"] = [
-            strata_idxs.index(x) for x in cancer_data.clinical_table.loc[:, "type"].tolist()
+            strata_idxs.index(x) for x in cancer_dataset.clinical_table.loc[:, "type"].tolist()
         ]
 
     # Setup Cox regression
@@ -113,7 +117,7 @@ def log_rank_rbm(cancer_type, genes, cancer_data, max_epochs=MAX_EPOCHS, trained
     cox_df['sample'] = list(cancer_mutations_table.index)
     return p_value, coef, rbm_model, cox_df, final_gene_set
 
-def log_rank_rbm_preset(cancer_type, cancer_data, gene_set_idx, trained_rbm=None):
+def log_rank_rbm_preset(cancer_type, cancer_dataset, gene_set_idx, trained_rbm=None):
     """
     Run log_rank_rbm on preset gene set for cancer_type, in index gene_set_idx (between 1 and 5).
     """
@@ -124,7 +128,7 @@ def log_rank_rbm_preset(cancer_type, cancer_data, gene_set_idx, trained_rbm=None
     gene_set_idx = gene_set_idx - 1
     cancer_code = CANCER_TYPES[cancer_type]
     genes = PRESETS[cancer_code][gene_set_idx]
-    return log_rank_rbm(cancer_type, genes, cancer_data, trained_rbm=trained_rbm)
+    return log_rank_rbm(cancer_type, genes, cancer_dataset, trained_rbm=trained_rbm)
 
 def log_rank_rbm_plots(cancer_type, cancer_data_train, cancer_data_test, genes, savepath=None):
     """
@@ -199,8 +203,8 @@ def log_rank_rbm_plots_preset(cancer_type, cancer_data_train, cancer_data_test, 
     genes = PRESETS[cancer_code][gene_set_idx]
     return log_rank_rbm_plots(cancer_type, cancer_data_train, cancer_data_test, genes, savepath=savepath)
 
-def get_hm_data(cancer_data, cancer_type, cox_df, genes):
-    mutations, clinical = cancer_data.extract_cancer(cancer_type, genes)
+def get_hm_data(cancer_dataset, cancer_type, cox_df, genes):
+    mutations, clinical = cancer_dataset.extract_cancer(cancer_type, genes)
     mutations = mutations[list(mutations.columns)].astype(int)
     clusters = list(cox_df['clusters'])
     clusters_idxs = list(np.argsort(clusters))

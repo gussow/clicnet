@@ -6,6 +6,7 @@ INSTALL_DEPS = [
     "lifelines>=0.24.9",
     "seaborn>=0.11.0",
     "matplotlib>=3.3.1",
+    "numexpr>=2.7.1"
 ]
 
 with open("README.md", "r") as fh:
@@ -13,7 +14,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="clicnet",
-    version="1.0",
+    version="1.2",
     author="Ayal B. Gussow, Noam Auslander",
     author_email="ayal.gussow@gmail.com, noamaus@gmail.com",
     description="Clinical Clustering of Cancer patients based on neural NETworks (CLICnet).",
