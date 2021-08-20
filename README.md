@@ -11,8 +11,7 @@ If you have any trouble installing or using CLICnet, please let us know by openi
 (either ayal.gussow@gmail.com or noamaus@gmail.com). 
 
 ## Citation
-CLICnet is not published yet; please cite this repository if you use CLICnet.
-
+[1]Ayal B Gussow,  Eugene V Koonin,  Noam Auslander. [Identification of combinations of somatic mutations that predict cancer survival and immunotherapy benefit](https://pubmed.ncbi.nlm.nih.gov/34027407/) NAR cancer, May 2021.
 
 ## Installation
 CLICnet requires Python 3, and has been tested with python3.6 and python3.7. 
